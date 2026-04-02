@@ -65,9 +65,52 @@ html, body, [class*="css"] {
 }
 
 .stApp {
-    background: var(--bg-primary) !important;
-    transition: background 0.4s ease, color 0.4s ease;
+    background: #020617 !important;
+    background-image: linear-gradient(145deg, #020617, #0B172E, #1a153a) !important;
+    background-attachment: fixed !important;
 }
+
+/* Global Dynamic Image Background */
+.stApp::before {
+    content: '';
+    position: fixed;
+    top: 0; left: 0;
+    width: 100vw; height: 100vh;
+    background-image: 
+        radial-gradient(circle at 10% 20%, rgba(56, 189, 248, 0.05) 0%, transparent 50%),
+        radial-gradient(circle at 90% 80%, rgba(124, 58, 237, 0.05) 0%, transparent 50%);
+    z-index: -1;
+    pointer-events: none;
+    animation: pulseOrbs 15s ease-in-out infinite alternate;
+}
+
+.stApp::after {
+    content: '';
+    position: fixed;
+    top: -50vh; left: -50vw;
+    width: 200vw; height: 200vh;
+    background-image: 
+        linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
+    background-size: 30px 30px;
+    z-index: -1;
+    pointer-events: none;
+    animation: driftGrid 60s linear infinite;
+    transform: perspective(600px) rotateX(15deg) scale(1.2);
+    transform-origin: top center;
+    opacity: 0.8;
+}
+
+@keyframes pulseOrbs {
+    0% { opacity: 0.5; transform: scale(1); }
+    100% { opacity: 1.2; transform: scale(1.1); }
+}
+
+@keyframes driftGrid {
+    0% { transform: perspective(600px) rotateX(15deg) scale(1.2) translateY(0); }
+    100% { transform: perspective(600px) rotateX(15deg) scale(1.2) translateY(30px); }
+}
+
 
 /* Apply fade to block containers */
 .main .block-container {

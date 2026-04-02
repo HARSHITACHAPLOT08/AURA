@@ -552,12 +552,8 @@ elif page == "🔍 Live Detection":
 elif page == "📊 Analytics":
     st.markdown('''
     <style>
-    /* Analytics Page Dedicated Background */
-    .stApp {
-        background: radial-gradient(ellipse at 50% -20%, rgba(124, 77, 255, 0.15), transparent 60%),
-                    radial-gradient(ellipse at 80% 80%, rgba(79, 195, 247, 0.1), transparent 50%),
-                    #0A0F1C !important;
-    }
+    /* Analytics Page Dedicated Background Controls */
+    .stApp { --bg-orb-opacity: 0.03 !important; }
     </style>
     <div style="background:linear-gradient(135deg, rgba(8, 17, 31, 0.8), rgba(15, 23, 42, 0.95));
                 backdrop-filter: blur(24px); border: 2px solid rgba(124, 77, 255, 0.4); border-radius: 20px;

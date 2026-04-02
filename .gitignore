@@ -21,6 +21,8 @@ comprehensive_ui_fix.py
 contrast_fix.py
 scanner_ui_fix.py
 tmp_*.txt
+b64_bg.txt
+*.b64
 
 # IDE configs
 .vscode/
