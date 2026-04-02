@@ -5,8 +5,7 @@ __pycache__/
 *.pyc
 .pytest_cache/
 
-# Local Data and Models (Large binaries)
-models/
+# Local Data (SQLite DB — not committed, recreated on startup)
 data/
 
 # Temporary Development Scripts & Logs

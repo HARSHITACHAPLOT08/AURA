@@ -11,8 +11,20 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import declarative_base, sessionmaker
 
-DB_PATH = Path(__file__).parent.parent / "data" / "aura.db"
-DB_PATH.parent.mkdir(exist_ok=True)
+import os as _os
+
+# Streamlit Cloud / Docker: only /tmp is writable.  Local dev: use data/ folder.
+def _resolve_db_path() -> Path:
+    local_data = Path(__file__).parent.parent / "data"
+    try:
+        local_data.mkdir(exist_ok=True)
+        test = local_data / ".write_test"
+        test.touch(); test.unlink()
+        return local_data / "aura.db"
+    except OSError:
+        return Path("/tmp") / "aura.db"
+
+DB_PATH = _resolve_db_path()
 ENGINE = create_engine(f"sqlite:///{DB_PATH}", connect_args={"check_same_thread": False})
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=ENGINE)
 Base = declarative_base()

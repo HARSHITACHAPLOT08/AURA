@@ -1,0 +1,13 @@
+{
+  "amount": 0.001355978543870151,
+  "hour": 0.0,
+  "day_of_week": 0.0,
+  "merchant_cat": 0.0,
+  "location_risk": 1.6157952547073364,
+  "device_trust": 1.561362624168396,
+  "past_fraud_ct": 0.0,
+  "velocity_1h": 10.92529582977295,
+  "dist_home_km": 1.5509557723999023,
+  "card_age_days": 0.030156143009662628,
+  "is_online": 0.0
+}
