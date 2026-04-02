@@ -1,0 +1,110 @@
+"""
+AURA — Database Layer
+SQLite via SQLAlchemy for transaction history and fraud logs.
+"""
+import os
+from datetime import datetime
+from pathlib import Path
+from sqlalchemy import (
+    create_engine, Column, Integer, Float, String,
+    Boolean, DateTime, Text, inspect,
+)
+from sqlalchemy.orm import declarative_base, sessionmaker
+
+DB_PATH = Path(__file__).parent.parent / "data" / "aura.db"
+DB_PATH.parent.mkdir(exist_ok=True)
+ENGINE = create_engine(f"sqlite:///{DB_PATH}", connect_args={"check_same_thread": False})
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=ENGINE)
+Base = declarative_base()
+
+
+class Transaction(Base):
+    __tablename__ = "transactions"
+
+    id              = Column(Integer, primary_key=True, index=True)
+    transaction_id  = Column(String, unique=True, index=True)
+    amount          = Column(Float)
+    hour            = Column(Integer)
+    day_of_week     = Column(Integer)
+    merchant_cat    = Column(Integer)
+    location_risk   = Column(Float)
+    device_trust    = Column(Float)
+    past_fraud_ct   = Column(Integer)
+    velocity_1h     = Column(Integer)
+    dist_home_km    = Column(Float)
+    card_age_days   = Column(Integer)
+    is_online       = Column(Boolean)
+
+    fraud_probability = Column(Float)
+    risk_level        = Column(String)    # Low / Medium / High
+    is_fraud          = Column(Boolean)
+    anomaly_score     = Column(Float)
+    top_features      = Column(Text)      # JSON string
+
+    timestamp = Column(DateTime, default=datetime.utcnow)
+    source    = Column(String, default="manual")  # manual | stream
+
+
+def init_db():
+    Base.metadata.create_all(bind=ENGINE)
+
+
+def save_transaction(data: dict, db=None):
+    """Persist a prediction result to the DB."""
+    close = False
+    if db is None:
+        db = SessionLocal()
+        close = True
+    try:
+        # Coerce timestamp: SQLite DateTime column requires a datetime object, not a string
+        row_data = dict(data)
+        ts = row_data.get("timestamp")
+        if isinstance(ts, str):
+            try:
+                row_data["timestamp"] = datetime.fromisoformat(ts)
+            except ValueError:
+                row_data["timestamp"] = datetime.utcnow()
+        elif ts is None:
+            row_data["timestamp"] = datetime.utcnow()
+
+        row = Transaction(**row_data)
+        db.add(row)
+        db.commit()
+        db.refresh(row)
+        return row
+    finally:
+        if close:
+            db.close()
+
+
+def get_recent_transactions(limit: int = 100) -> list[dict]:
+    db = SessionLocal()
+    try:
+        rows = db.query(Transaction).order_by(Transaction.id.desc()).limit(limit).all()
+        return [_row_to_dict(r) for r in rows]
+    finally:
+        db.close()
+
+
+def get_stats() -> dict:
+    db = SessionLocal()
+    try:
+        total = db.query(Transaction).count()
+        fraud = db.query(Transaction).filter(Transaction.is_fraud == True).count()
+        return {
+            "total": total,
+            "fraud": fraud,
+            "legit": total - fraud,
+            "fraud_rate": round(fraud / total * 100, 2) if total else 0.0,
+        }
+    finally:
+        db.close()
+
+
+def _row_to_dict(row: Transaction) -> dict:
+    return {c.key: getattr(row, c.key)
+            for c in inspect(row).mapper.column_attrs}
+
+
+# Initialise on import
+init_db()

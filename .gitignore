@@ -1,0 +1,27 @@
+# Environments
+.venv/
+env/
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Local Data and Models (Large binaries)
+models/
+data/
+
+# Temporary Development Scripts & Logs
+patch_*.py
+fix_*.py
+tweak_*.py
+restyle_*.py
+rewrite_*.py
+refine_*.py
+deploy_simulator.py
+comprehensive_ui_fix.py
+contrast_fix.py
+scanner_ui_fix.py
+tmp_*.txt
+
+# IDE configs
+.vscode/
+.idea/
