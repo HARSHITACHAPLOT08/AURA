@@ -26,6 +26,8 @@ importlib.reload(login)
 importlib.reload(chatbot)
 from login import render_login
 from chatbot import render_chatbot
+from backend.database import get_user, upsert_user, save_kyc
+from backend.notifications import send_email_notification
 
 if 'logged_in' not in st.session_state: st.session_state.logged_in = False
 if 'theme' not in st.session_state: st.session_state.theme = 'dark'
@@ -128,7 +130,7 @@ with st.sidebar:
 
     page = st.radio(
         "Navigate",
-        ["🏠 Dashboard", "🔍 Live Detection", "📊 Analytics", "🔐 Cyber Awareness"],
+        ["🏠 Dashboard", "🔍 Live Detection", "📊 Analytics", "🔐 Cyber Awareness", "👤 Profile", "🧾 KYC", "🔓 Logout"],
         label_visibility="collapsed",
     )
 
@@ -170,6 +172,9 @@ _page_meta = {
     "🔍 Live Detection": ("🔍 Live Transaction Scanner",  "Analyze transactions with XGBoost + SHAP explainability"),
     "📊 Analytics":      ("📊 Deep Analytics",            "Historical patterns, feature importance & trend analysis"),
     "🔐 Cyber Awareness":("🔐 Cybersecurity Hub",         "Phishing awareness, safe patterns & security education"),
+    "👤 Profile":        ("👤 Your Profile",             "Manage your account details and preferences"),
+    "🧾 KYC":            ("🧾 Know Your Customer",      "Submit identity documents to verify your account"),
+    "🔓 Logout":        ("🔓 Logout",                 "Sign out of AURA"),
 }
 _htitle, _hsub = _page_meta.get(page, ("AURA", ""))
 def render_top_navbar(title, subtitle):
@@ -850,4 +855,222 @@ elif page == "🔐 Cyber Awareness":
             ''', unsafe_allow_html=True)
 
 # ── Global UI Components ────────────────────────────────────────────
+
+# Profile Page
+elif page == "👤 Profile":
+    username = st.session_state.get("username", "admin")
+    st.markdown('<div class="card-title">👤 Profile Settings</div>', unsafe_allow_html=True)
+    user = get_user(username) or {}
+    with st.form("profile_form"):
+        full_name = st.text_input("Full name", value=user.get("full_name") if user else "")
+        email = st.text_input("Email", value=user.get("email") if user else "")
+        phone = st.text_input("Phone", value=user.get("phone") if user else "")
+        save_btn = st.form_submit_button("Save Profile")
+    if save_btn:
+        # Basic validation
+        import re
+        email_ok = True
+        phone_ok = True
+        if email:
+            email_ok = re.match(r"^[^@\s]+@[^@\s]+\.[^@\s]+$", email) is not None
+        if phone:
+            # allow plus, digits, spaces, dashes; require 7-15 digits
+            digits = re.sub(r"\D", "", phone)
+            phone_ok = 7 <= len(digits) <= 15
+
+        if not email_ok:
+            st.error("Please enter a valid email address.")
+        elif not phone_ok:
+            st.error("Please enter a valid phone number (7-15 digits).")
+        else:
+            try:
+                upsert_user({"username": username, "full_name": full_name, "email": email, "phone": phone})
+                st.success("Profile saved.")
+            except Exception as e:
+                st.error(f"Failed to save profile: {e}")
+
+    st.markdown('<div style="height:10px"></div>', unsafe_allow_html=True)
+    st.markdown('<div class="card-title">Account Details</div>', unsafe_allow_html=True)
+    user = get_user(username)
+    if user:
+        st.write({
+            "Username": user.get("username"),
+            "Full name": user.get("full_name"),
+            "Email": user.get("email"),
+            "Phone": user.get("phone"),
+            "KYC Status": user.get("kyc_status"),
+        })
+    else:
+        st.info("No profile found. Save your profile above.")
+
+
+# KYC Page
+elif page == "🧾 KYC":
+    st.markdown('<div class="card-title">🧾 KYC Verification</div>', unsafe_allow_html=True)
+    username = st.session_state.get("username", "admin")
+    user = get_user(username) or {}
+    st.markdown('<div style="font-size:.9rem;color:#94a3b8;margin-bottom:12px">Complete your identity verification to unlock all features.</div>', unsafe_allow_html=True)
+
+    # Steps header (Upload ID -> Face Verification -> Complete)
+    st.markdown('''
+    <div style="display:flex;gap:20px;align-items:center;margin-bottom:18px">
+      <div style="text-align:center;flex:1">
+        <div style="width:56px;height:56px;border-radius:28px;background:#4fc3f7;color:white;display:inline-flex;align-items:center;justify-content:center;font-size:24px">⬆️</div>
+        <div style="margin-top:8px;color:#e2e8f0">Upload ID</div>
+      </div>
+      <div style="text-align:center;flex:1">
+        <div style="width:56px;height:56px;border-radius:28px;background:#7c4dff;color:white;display:inline-flex;align-items:center;justify-content:center;font-size:20px">📷</div>
+        <div style="margin-top:8px;color:#e2e8f0">Face Verification</div>
+      </div>
+      <div style="text-align:center;flex:1">
+        <div style="width:56px;height:56px;border-radius:28px;background:#10b981;color:white;display:inline-flex;align-items:center;justify-content:center;font-size:20px">✔️</div>
+        <div style="margin-top:8px;color:#e2e8f0">Complete</div>
+      </div>
+    </div>
+    ''', unsafe_allow_html=True)
+
+    # Drag & Drop / Upload area
+    st.markdown('''
+    <div style="border:2px dashed rgba(148,163,184,0.18); border-radius:12px; padding:30px; text-align:center; margin-bottom:12px;">
+        <div style="font-size:36px;color:#94a3b8">⬆️</div>
+        <div style="font-size:1.1rem;color:#e2e8f0;font-weight:700;margin-top:8px">Click to upload your ID</div>
+        <div style="color:#94a3b8;margin-top:6px;font-size:.9rem">Supported: Driver's License, Passport, National ID (PNG/JPG/PDF)</div>
+    </div>
+    ''', unsafe_allow_html=True)
+
+    with st.form("kyc_form"):
+        id_type = st.selectbox("ID Type", ["Passport", "Driver's License", "National ID"], index=0)
+        id_number = st.text_input("ID Number", value=user.get("kyc_document") or "")
+        address = st.text_area("Address")
+        doc = st.file_uploader("Upload ID Document (image/pdf)", type=["png", "jpg", "jpeg", "pdf"])
+        submit_kyc = st.form_submit_button("Submit KYC")
+
+    if submit_kyc:
+        if not id_number:
+            st.error("Please provide an ID number.")
+        elif doc is None:
+            st.error("Please upload a document file.")
+        else:
+            try:
+                data = doc.getbuffer().tobytes()
+                saved = save_kyc(username, data, doc.name)
+                upsert_user({"username": username, "kyc_status": "submitted", "kyc_document": saved})
+                st.success("KYC submitted — status set to 'submitted'.")
+                # Send email notification if user has an email
+                user_after = get_user(username) or {}
+                to_email = user_after.get("email")
+                email_sent = (False, "no-email")
+                if to_email:
+                    subject = "AURA — KYC Submitted"
+                    body = f"Hello {user_after.get('full_name') or username},\n\nYour KYC was submitted and is under review. Status: submitted.\n\nRegards, AURA Team"
+                    email_sent = send_email_notification(to_email, subject, body)
+                # Show a confirmation modal
+                try:
+                    with st.modal("KYC Submitted"):
+                        st.markdown("Your document was saved and your KYC status is now `submitted`.")
+                        if to_email:
+                            ok, msg = email_sent
+                            if ok:
+                                st.success(f"A confirmation email was sent to {to_email}.")
+                            else:
+                                st.warning(f"Attempted to send email to {to_email}, but failed: {msg}")
+                        else:
+                            st.info("No email address on file — add one in Profile to receive notifications.")
+                        st.button("Close")
+                except Exception:
+                    pass
+                st.write({"Saved Path": saved})
+                # Preview uploaded document when possible
+                try:
+                    lower = saved.lower()
+                    if lower.endswith(('.png', '.jpg', '.jpeg')):
+                        from PIL import Image
+                        img = Image.open(saved)
+                        st.image(img, caption="Uploaded ID", use_column_width=True)
+                    elif lower.endswith('.pdf'):
+                        # Provide download link for PDF
+                        with open(saved, 'rb') as f:
+                            pdf_bytes = f.read()
+                        st.download_button("Download uploaded PDF", pdf_bytes, file_name=Path(saved).name)
+                except Exception:
+                    pass
+            except Exception as e:
+                st.error(f"Failed to upload KYC: {e}")
+
+    st.markdown('<div style="height:12px"></div>', unsafe_allow_html=True)
+    if user and user.get("kyc_document"):
+        st.markdown('<div class="card-title">Submitted Document</div>', unsafe_allow_html=True)
+        st.write({"KYC Status": user.get("kyc_status"), "Document": user.get("kyc_document")})
+        # Attempt to render preview
+        try:
+            doc_path = user.get("kyc_document")
+            if doc_path and isinstance(doc_path, str):
+                lp = doc_path.lower()
+                if lp.endswith(('.png', '.jpg', '.jpeg')):
+                    from PIL import Image
+                    img = Image.open(doc_path)
+                    st.image(img, caption="Existing uploaded ID", use_column_width=True)
+                elif lp.endswith('.pdf'):
+                    with open(doc_path, 'rb') as f:
+                        pdf_b = f.read()
+                    st.download_button("Download existing PDF", pdf_b, file_name=Path(doc_path).name)
+        except Exception:
+            pass
+
+    # Face capture flow (optional step)
+    st.markdown('<div style="height:6px"></div>', unsafe_allow_html=True)
+    st.markdown('<div style="font-weight:700;margin-bottom:6px">Face Verification (optional)</div>')
+    face_img = st.camera_input("Capture your face for liveness check")
+    if face_img is not None:
+        if st.button("Submit Face Verification"):
+            try:
+                fb = face_img.getbuffer().tobytes()
+                saved_face = save_kyc(username, fb, f"{username}_face.jpg")
+                upsert_user({"username": username, "kyc_status": "face_submitted", "kyc_document": user.get("kyc_document")})
+                st.success("Face image submitted.")
+                # Notify by email if available
+                user_after = get_user(username) or {}
+                to_email = user_after.get("email")
+                if to_email:
+                    subject = "AURA — Face Verification Submitted"
+                    body = f"Hello {user_after.get('full_name') or username},\n\nYour face verification image was submitted. Status: face_submitted.\n\nRegards, AURA Team"
+                    ok, msg = send_email_notification(to_email, subject, body)
+                # Small modal confirmation
+                try:
+                    with st.modal("Face Verification"):
+                        st.markdown("Your face image was submitted for KYC liveness checks.")
+                        if to_email:
+                            if ok:
+                                st.success(f"A confirmation email was sent to {to_email}.")
+                            else:
+                                st.warning(f"Attempted to send email to {to_email}, but failed: {msg}")
+                        st.button("Close")
+                except Exception:
+                    pass
+                try:
+                    from PIL import Image
+                    img = Image.open(saved_face)
+                    st.image(img, caption="Captured Face", use_column_width=True)
+                except Exception:
+                    pass
+            except Exception as e:
+                st.error(f"Failed to save face image: {e}")
+
+
+# Logout Page
+elif page == "🔓 Logout":
+    st.markdown('<div class="card-title">🔓 Logout</div>', unsafe_allow_html=True)
+    st.markdown('<div style="font-size:.95rem;color:#94a3b8;margin-bottom:12px">Sign out from AURA and clear session data.</div>', unsafe_allow_html=True)
+    if st.button("Confirm Logout"):
+        # Clear session keys used by the app
+        keys_to_clear = [k for k in list(st.session_state.keys()) if k not in ("theme",)]
+        for k in keys_to_clear:
+            try:
+                del st.session_state[k]
+            except Exception:
+                pass
+        st.session_state.logged_in = False
+        st.success("You have been logged out.")
+        st.experimental_rerun()
+
 render_chatbot()
