@@ -199,7 +199,18 @@ html, body, [class*="css"] {
     -webkit-background-clip: text; -webkit-text-fill-color: transparent;
     letter-spacing: -0.5px; margin: 0;
 }
-.nav-subtitle { font-size: 0.8rem; color: #94A3B8; font-weight: 600; letter-spacing: 1px; text-transform: uppercase; }
+.nav-subtitle {
+    font-size: 0.78rem;
+    color: #B8D4E8;
+    font-weight: 600;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 600px;
+    margin-top: 2px;
+}
 
 /* Center - Search */
 .nav-search-container { position: relative; width: 380px; }
